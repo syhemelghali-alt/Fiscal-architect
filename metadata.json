@@ -1,0 +1,6 @@
+{
+  "name": "Administrateur",
+  "description": "Système de gestion administrative et journal de documents avec analyse OCR haute précision.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
