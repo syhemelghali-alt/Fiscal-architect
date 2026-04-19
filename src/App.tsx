@@ -34,7 +34,8 @@ import {
   Download,
   Calendar,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -75,6 +76,8 @@ const docIcons = {
 export default function App() {
   const [role, setRole] = useState<UserRole>(null);
   const [activePage, setActivePage] = useState<ActivePage>('documents');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -124,6 +127,48 @@ export default function App() {
       }
     } catch (e) {
       console.error('Failed to fetch documents');
+    }
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Simulation d'un upload avec progression pour le visuel
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 5;
+        });
+      }, 100);
+
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        await fetchDocuments();
+        setTimeout(() => {
+          setIsUploading(false);
+          setUploadProgress(0);
+          setActivePage('documents');
+        }, 800);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setIsUploading(false);
     }
   };
 
@@ -380,6 +425,59 @@ export default function App() {
                 )}
               </div>
 
+              {/* Traitement AI / Bulk Upload Section */}
+              <div className="mb-10">
+                <div 
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-accent', 'bg-accent/5'); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-accent', 'bg-accent/5'); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-accent', 'bg-accent/5');
+                    handleFileUpload(e.dataTransfer.files);
+                  }}
+                  className="glass-card relative overflow-hidden border-2 border-dashed border-white/10 hover:border-accent/40 transition-all p-10 flex flex-col items-center justify-center gap-6"
+                >
+                  <input 
+                    type="file" 
+                    multiple 
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  />
+                  
+                  {isUploading ? (
+                    <div className="flex flex-col items-center gap-6 w-full max-w-md text-center">
+                      <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center">
+                        <Upload size={30} className="text-white animate-bounce" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-2">Traitement en cours...</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest leading-relaxed">
+                          Synchronisation avec iCloud Drive & Processing AI<br/>
+                          Extraction OCR en cours...
+                        </p>
+                      </div>
+                      <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          className="h-full bg-accent shadow-[0_0_20px_rgba(234,179,8,0.4)]"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-20 h-20 rounded-3xl bg-white/5 border border-glass-border flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Plus size={40} className="text-white/20 group-hover:text-accent transition-colors" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-white mb-2 tracking-tight">Traitement Comptable de Masse</p>
+                        <p className="text-sm text-white/40 italic font-medium">Glissez vos fichiers iCloud ici pour une remontée automatique</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
               {/* Filters & Table Layout (Original) */}
               <div className="mb-8 flex flex-col items-center gap-4 rounded-2xl bg-white/5 border border-glass-border p-4 lg:flex-row backdrop-blur-sm">
                 <div className="relative w-full lg:max-w-md">
@@ -611,9 +709,84 @@ export default function App() {
           )}
 
           {activePage === 'dashboard' && (
-            <motion.div key="dash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-32 opacity-20">
-              <LayoutDashboard size={80} className="mb-4" />
-              <p className="text-xl font-bold italic uppercase tracking-widest">Dashboard en construction</p>
+            <motion.div key="dash" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium uppercase tracking-widest text-white/50 mb-1">Vue d'ensemble</span>
+                <h2 className="text-4xl font-black text-white tracking-tight">Tableau de Bord</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { label: "Total HT", value: documents.reduce((acc, d) => acc + d.amountHT, 0), icon: TrendingUp, color: "text-accent" },
+                  { label: "TVA Cumulée", value: documents.reduce((acc, d) => acc + d.amountTVA, 0), icon: Zap, color: "text-blue-400" },
+                  { label: "Total TTC", value: documents.reduce((acc, d) => acc + d.amountTTC, 0), icon: ShieldCheck, color: "text-emerald-400" },
+                  { label: "À Payer", value: documents.filter(d => d.paymentStatus !== 'Payé').reduce((acc, d) => acc + d.amountTTC, 0), icon: AlertTriangle, color: "text-amber-400" }
+                ].map((stat, i) => (
+                  <motion.div 
+                    key={stat.label}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="glass-card p-6 flex flex-col gap-4 group hover:border-white/20 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className={`p-2 rounded-lg bg-white/5 border border-glass-border ${stat.color}`}>
+                        <stat.icon size={20} />
+                      </div>
+                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Temps réel</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1">{stat.label}</p>
+                      <p className="text-2xl font-black text-white tabular-nums">
+                        {stat.value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 glass-card p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                      <Layers size={20} className="text-accent" />
+                      Activité Récente
+                    </h3>
+                    <button onClick={() => setActivePage('documents')} className="text-xs font-bold uppercase tracking-wider text-accent hover:underline">Voir tout</button>
+                  </div>
+                  <div className="space-y-4">
+                    {documents.slice(0, 5).map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-glass-border hover:bg-white/10 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-2 h-2 rounded-full ${doc.paymentStatus === 'Payé' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          <div>
+                            <p className="text-sm font-bold text-white">{doc.vendor || doc.name}</p>
+                            <p className="text-[10px] text-white/40 uppercase">{doc.date}</p>
+                          </div>
+                        </div>
+                        <p className="font-bold text-white text-sm">{doc.amount}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass-card p-8 bg-accent/5 border-accent/20">
+                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                    <Calendar size={20} className="text-accent" />
+                    Notes Plan
+                  </h3>
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-white/5 border border-glass-border">
+                      <p className="text-xs font-bold text-accent uppercase mb-2">Rappel TVA</p>
+                      <p className="text-sm text-white/70 leading-relaxed italic">Prochaine déclaration à prévoir pour le 15 du mois prochain.</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/5 border border-glass-border">
+                      <p className="text-xs font-bold text-emerald-400 uppercase mb-2">Conseil Fiscal</p>
+                      <p className="text-sm text-white/70 leading-relaxed italic">Vérifiez bien que tous les fournisseurs ont leur libellé correct avant l'export.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -199,6 +199,38 @@ async function startServer() {
     }
   });
 
+  app.post('/api/upload', authenticateToken, (req: any, res) => {
+    // Dans une vraie app, on utiliserait multer et une IA (OCR)
+    // Ici on simule l'ajout de documents "traités" par l'IA
+    const newDoc = {
+      id: documents.length + 1,
+      owner: req.user.username,
+      date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now(),
+      name: 'Nouveau Fournisseur (IA)',
+      vendor: 'Source Cloud',
+      description: 'Document traité automatiquement par OCR',
+      subtitle: 'Facture #TEMP-' + Math.floor(Math.random() * 10000),
+      type: 'Frais',
+      account: '625',
+      accountStatus: 'auto',
+      amountValue: 89.90,
+      amount: '89,90 €',
+      amountHT: 74.92,
+      amountTVA: 14.98,
+      amountTTC: 89.90,
+      accountNumber: '625000',
+      accountingJournal: 'ACH',
+      analyticalCode: 'GEN-PROC',
+      status: 'Validé',
+      paymentStatus: 'À payer'
+    };
+
+    documents.unshift(newDoc); // On ajoute au début
+    res.json({ success: true, document: newDoc });
+  });
+
   // Vite preview setup
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -209,7 +241,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
