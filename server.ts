@@ -9,9 +9,16 @@ import bcrypt from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_dev_only';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_dev_only_change_this_on_render';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const CLIENT_PASSWORD = 'client_password_123'; // In a real app, store these in a DB
+
+// En réealité, ceci devrait être dans une base de données. 
+// Pour l'instant, nous utilisons un objet simple.
+const users = [
+  { username: 'admin', password: ADMIN_PASSWORD, role: 'admin' },
+  { username: 'client1', password: 'password123', role: 'client' },
+  { username: 'client2', password: 'password456', role: 'client' },
+];
 
 async function startServer() {
   const app = express();
@@ -20,12 +27,104 @@ async function startServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Mock database for documents
+  // Mock database for documents - Each doc can now have an "owner"
   const documents = [
-    { id: 1, date: '14 Oct. 2023', time: '14:32', timestamp: 1697286720000, name: 'Orange Business', subtitle: 'Facture #FR-2023-991', type: 'Télécom', account: '626', accountStatus: 'auto', amountValue: 142.50, amount: '142,50 €', status: 'Validé' },
-    { id: 2, date: '12 Oct. 2023', time: '09:15', timestamp: 1697094900000, name: 'EDF - Siège Social', subtitle: 'Abonnement Octobre', type: 'Énergie', account: '606', accountStatus: 'suggested', amountValue: 856.22, amount: '856,22 €', status: 'À vérifier' },
-    { id: 3, date: '11 Oct. 2023', time: '17:45', timestamp: 1697039100000, name: 'Client X - Cabinet Conseil', subtitle: 'Prestation Audit T3', type: 'Ventes', account: '706', accountStatus: 'auto', amountValue: 4200.00, amount: '4 200,00 €', status: 'Validé' },
-    { id: 4, date: '10 Oct. 2023', time: '11:20', timestamp: 1696929600000, name: "L'Atelier des Gourmets", subtitle: "Déjeuner d'affaires", type: 'Frais', account: '625', accountStatus: 'suggested', amountValue: 124.80, amount: '124,80 €', status: 'À vérifier' }
+    { 
+      id: 1, 
+      owner: 'client1', 
+      date: '14 Oct. 2023', 
+      time: '14:32', 
+      timestamp: 1697286720000, 
+      name: 'Orange Business', 
+      vendor: 'Orange Business',
+      description: 'Facture Téléphonie Fixe Octobre',
+      subtitle: 'Facture #FR-2023-991', 
+      type: 'Télécom', 
+      account: '626', 
+      accountStatus: 'auto', 
+      amountValue: 142.50, 
+      amount: '142,50 €', 
+      amountHT: 118.75,
+      amountTVA: 23.75,
+      amountTTC: 142.50,
+      accountNumber: '626000',
+      accountingJournal: 'ACH',
+      analyticalCode: 'FR-TEL',
+      status: 'Validé',
+      paymentStatus: 'Payé'
+    },
+    { 
+      id: 2, 
+      owner: 'client1', 
+      date: '12 Oct. 2023', 
+      time: '09:15', 
+      timestamp: 1697094900000, 
+      name: 'EDF - Siège Social', 
+      vendor: 'EDF',
+      description: 'Abonnement Électricité Siège',
+      subtitle: 'Abonnement Octobre', 
+      type: 'Énergie', 
+      account: '606', 
+      accountStatus: 'suggested', 
+      amountValue: 856.22, 
+      amount: '856,22 €', 
+      amountHT: 713.52,
+      amountTVA: 142.70,
+      amountTTC: 856.22,
+      accountNumber: '606100',
+      accountingJournal: 'ACH',
+      analyticalCode: 'HQ-ENE',
+      status: 'À vérifier',
+      paymentStatus: 'À payer'
+    },
+    { 
+      id: 3, 
+      owner: 'client2', 
+      date: '11 Oct. 2023', 
+      time: '17:45', 
+      timestamp: 1697039100000, 
+      name: 'Client X - Cabinet Conseil', 
+      vendor: 'Client X',
+      description: 'Audit financier trimestriel',
+      subtitle: 'Prestation Audit T3', 
+      type: 'Ventes', 
+      account: '706', 
+      accountStatus: 'auto', 
+      amountValue: 4200.00, 
+      amount: '4 200,00 €', 
+      amountHT: 3500.00,
+      amountTVA: 700.00,
+      amountTTC: 4200.00,
+      accountNumber: '706000',
+      accountingJournal: 'VEN',
+      analyticalCode: 'SRV-CONS',
+      status: 'Validé',
+      paymentStatus: 'Payé'
+    },
+    { 
+      id: 4, 
+      owner: 'client2', 
+      date: '10 Oct. 2023', 
+      time: '11:20', 
+      timestamp: 1696929600000, 
+      name: "L'Atelier des Gourmets", 
+      vendor: "L'Atelier des Gourmets",
+      description: 'Déjeuner client - Négociation contrat',
+      subtitle: "Déjeuner d'affaires", 
+      type: 'Frais', 
+      account: '625', 
+      accountStatus: 'suggested', 
+      amountValue: 124.80, 
+      amount: '124,80 €', 
+      amountHT: 104.00,
+      amountTVA: 20.80,
+      amountTTC: 124.80,
+      accountNumber: '625700',
+      accountingJournal: 'ACH',
+      analyticalCode: 'MKG-REST',
+      status: 'À vérifier',
+      paymentStatus: 'À payer'
+    }
   ];
 
   // Auth Middleware
@@ -43,18 +142,41 @@ async function startServer() {
   // API Routes
   app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    
+    console.log(`Tentative de connexion : ${username}`);
 
-    if (username === 'admin' && (password === ADMIN_PASSWORD || password === 'admin123')) {
-      const token = jwt.sign({ username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-      res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-      return res.json({ role: 'admin' });
-    } else if (username === 'client' && (password === CLIENT_PASSWORD || password === 'client123')) {
-      const token = jwt.sign({ username: 'client', role: 'client' }, JWT_SECRET, { expiresIn: '8h' });
-      res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-      return res.json({ role: 'client' });
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Pour l'admin, on vérifie soit la variable d'env, soit le défaut 'admin123'
+    if (username && username.toLowerCase() === 'admin') {
+      if (password === ADMIN_PASSWORD || password === 'admin123') {
+        const token = jwt.sign({ username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
+        res.cookie('token', token, { 
+          httpOnly: true, 
+          secure: isProduction, 
+          sameSite: 'lax' 
+        });
+        console.log('Connexion Admin réussie');
+        return res.json({ role: 'admin', username: 'admin' });
+      }
     }
 
-    res.status(401).json({ error: 'Identifiants invalides' });
+    // Recherche pour les autres clients (insensible à la casse pour le username)
+    const user = users.find(u => u.username.toLowerCase() === (username || '').toLowerCase());
+
+    if (user && password === user.password) {
+      const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
+      res.cookie('token', token, { 
+        httpOnly: true, 
+        secure: isProduction,
+        sameSite: 'lax' 
+      });
+      console.log(`Connexion Client réussie : ${user.username}`);
+      return res.json({ role: user.role, username: user.username });
+    }
+
+    console.log('Échec de connexion : identifiants invalides');
+    res.status(401).json({ error: 'Identifiants ou Mot de Passe incorrect' });
   });
 
   app.post('/api/logout', (req, res) => {
@@ -66,8 +188,15 @@ async function startServer() {
     res.json({ username: req.user.username, role: req.user.role });
   });
 
-  app.get('/api/documents', authenticateToken, (req, res) => {
-    res.json(documents);
+  app.get('/api/documents', authenticateToken, (req: any, res) => {
+    if (req.user.role === 'admin') {
+      // L'admin voit tout
+      res.json(documents);
+    } else {
+      // Le client ne voit que ses propres documents
+      const clientDocs = documents.filter(doc => doc.owner === req.user.username);
+      res.json(clientDocs);
+    }
   });
 
   // Vite preview setup
