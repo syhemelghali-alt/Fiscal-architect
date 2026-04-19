@@ -410,19 +410,6 @@ export default function App() {
                     Journal des Documents
                   </h2>
                 </div>
-                
-                {role === 'admin' && (
-                  <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 rounded-xl bg-white/5 border border-glass-border px-5 py-2.5 font-semibold text-white/80 transition-all hover:bg-white/10">
-                      <UploadCloud size={20} />
-                      <span>Importer</span>
-                    </button>
-                    <button className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-semibold text-white shadow-lg shadow-accent/20 transition-all hover:opacity-90 active:scale-95">
-                      <Plus size={20} />
-                      <span>Nouveau Document</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Traitement AI / Bulk Upload Section */}
