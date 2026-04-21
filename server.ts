@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_dev_only_change_this_on_render';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'c00e52f6d5546607fe9186bcd98b0d61';
 
 // En réalité, ceci devrait être dans une base de données. 
 // Pour l'instant, nous utilisons un objet simple.
