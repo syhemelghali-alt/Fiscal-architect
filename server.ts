@@ -12,12 +12,13 @@ const __dirname = path.dirname(__filename);
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_dev_only_change_this_on_render';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-// En réealité, ceci devrait être dans une base de données. 
+// En réalité, ceci devrait être dans une base de données. 
 // Pour l'instant, nous utilisons un objet simple.
 const users = [
   { username: 'admin', password: ADMIN_PASSWORD, role: 'admin' },
   { username: 'client1', password: 'password123', role: 'client' },
   { username: 'client2', password: 'password456', role: 'client' },
+  { username: 'syhemelghali@gmail.com', password: 'password123', role: 'client' },
 ];
 
 async function startServer() {
@@ -141,41 +142,48 @@ async function startServer() {
 
   // API Routes
   app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
+    const username = (req.body.username || '').trim();
+    const password = (req.body.password || '').trim();
     
-    console.log(`Tentative de connexion : ${username}`);
+    console.log(`Tentative de connexion : "${username}"`);
 
     const isProduction = process.env.NODE_ENV === 'production';
 
     // Pour l'admin, on vérifie soit la variable d'env, soit le défaut 'admin123'
-    if (username && username.toLowerCase() === 'admin') {
-      if (password === ADMIN_PASSWORD || password === 'admin123') {
+    if (username.toLowerCase() === 'admin') {
+      const isCorrectPassword = password === ADMIN_PASSWORD || password === 'admin123';
+      if (isCorrectPassword) {
         const token = jwt.sign({ username: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
         res.cookie('token', token, { 
           httpOnly: true, 
-          secure: isProduction, 
-          sameSite: 'lax' 
+          secure: true, 
+          sameSite: 'none'
         });
         console.log('Connexion Admin réussie');
         return res.json({ role: 'admin', username: 'admin' });
+      } else {
+        console.log(`Échec mot de passe admin. Saisi: "${password}"`);
       }
     }
 
-    // Recherche pour les autres clients (insensible à la casse pour le username)
-    const user = users.find(u => u.username.toLowerCase() === (username || '').toLowerCase());
+    // Recherche pour les autres clients
+    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
     if (user && password === user.password) {
       const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
       res.cookie('token', token, { 
         httpOnly: true, 
-        secure: isProduction,
-        sameSite: 'lax' 
+        secure: true, 
+        sameSite: 'none' 
       });
       console.log(`Connexion Client réussie : ${user.username}`);
       return res.json({ role: user.role, username: user.username });
+    } else if (user) {
+      console.log(`Échec mot de passe client pour ${user.username}. Saisi: "${password}"`);
+    } else {
+      console.log(`Utilisateur non trouvé dans la liste : "${username}"`);
     }
 
-    console.log('Échec de connexion : identifiants invalides');
     res.status(401).json({ error: 'Identifiants ou Mot de Passe incorrect' });
   });
 
